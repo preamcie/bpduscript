@@ -28,13 +28,15 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# RSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
-bpdu_flags = 0b00000000  # No Proposal, No Agreement
+# Set BPDU flags to 0x3C (forwarding, learning, designated port role)
+# 0x3C = 00111100 (Forwarding = 1, Learning = 1, Designated Port Role = 011)
+bpdu_flags = 0x3C
 
+# RSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
 bpdu = STP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
-    bpduflags=bpdu_flags,  # Set BPDU flags (No Proposal, No Agreement)
+    bpduflags=bpdu_flags,  # Set BPDU flags (Forwarding, Learning, Designated Port Role)
     rootid=bridge_priority,  # Root Bridge priority (does not include PVID)
     rootmac=src_mac,
     pathcost=4,
@@ -59,7 +61,7 @@ else:
     packet = ether / vlan / llc / bpdu
 
 try:
-    print(f"Sending RSTP BPDU packets with PVID {pvid}... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets with PVID {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
