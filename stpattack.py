@@ -2,11 +2,7 @@ from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, Dot1Q
 from scapy.fields import XShortField, ShortField
 
-# Extend the standard STP BPDU with the Originating VLAN TLV for trunk ports
-class ExtendedSTP(STP):
-    fields_desc = STP.fields_desc  # No modification needed here, we append TLV later
-
-# Define the PVID TLV (Type-Length-Value)
+# Define the PVID TLV (Type-Length-Value) that will be appended to the BPDU
 class PVID_TLV(Packet):
     fields_desc = [
         XShortField("type", 0x0000),      # Type: PVID (0x0000)
@@ -32,14 +28,14 @@ ether = Ether(dst=dst_mac, src=src_mac)
 
 # Correctly handle the PVID (Port VLAN ID) in the 802.1Q header for trunk ports
 if pvid == 1:
-    # If PVID is 1 (access port), send an untagged BPDU
+    # If PVID is 1 (access port), send an untagged BPDU without PVID TLV
     vlan = None  # No VLAN tag for access port (default VLAN 1)
 else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# BPDU packet
-bpdu = ExtendedSTP(
+# BPDU packet (STP BPDU with standard fields)
+bpdu = STP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
     bpduflags=0x3C,  # BPDU flags for Forwarding, Learning, and Designated Port
@@ -58,14 +54,15 @@ bpdu = ExtendedSTP(
 # Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
 llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
 
-# Construct the packet for trunk ports (with PVID TLV at the end)
+# For trunk ports, append the PVID TLV after the BPDU
 if vlan is None:
     # For access port (PVID = 1), send the BPDU without a VLAN tag or PVID TLV
     packet = ether / llc / bpdu
 else:
-    # For trunk ports, append the PVID TLV after the BPDU
-    pvid_tlv = PVID_TLV(vlan_id=pvid)  # Create the PVID TLV
-    packet = ether / vlan / llc / bpdu / pvid_tlv  # Append the PVID TLV
+    # Create the PVID TLV to append at the end of the BPDU for trunk ports
+    pvid_tlv = PVID_TLV(vlan_id=pvid)
+    # Append the PVID TLV to the BPDU for trunk ports
+    packet = ether / vlan / llc / bpdu / pvid_tlv
 
 # Send the packet
 try:
