@@ -1,9 +1,9 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, STP, Dot1Q
 
-# Ask for user input on priority and VLAN ID (PVID)
+# Ask for user input on priority and PVID (Port VLAN ID)
 user_priority = int(input("Enter the bridge priority (should be a multiple of 4096): "))
-vlan_id = int(input("Enter the PVID (Port VLAN ID): "))  # This is the VLAN ID that will be used as the originating VLAN (PVID)
+pvid = int(input("Enter the PVID (Port VLAN ID): "))  # This is the VLAN ID that will be used as the PVID
 
 # Ensure the priority is correctly formatted
 priority = user_priority if user_priority % 4096 == 0 else (user_priority // 4096) * 4096
@@ -20,13 +20,13 @@ dst_mac = "01:00:0C:CC:CC:CD"
 # Ethernet frame for STP BPDUs with PVST+ destination MAC
 ether = Ether(dst=dst_mac, src=src_mac)
 
-# Handle the PVID (VLAN ID) in the 802.1Q header for trunk ports
-if vlan_id == 1:
+# Correctly handle the PVID (Port VLAN ID) in the 802.1Q header for trunk ports
+if pvid == 1:
     # If PVID is 1 (access port), send an untagged BPDU
     vlan = None  # No VLAN tag for access port (default VLAN 1)
 else:
-    # For trunk ports, use 802.1Q VLAN tagging with the PVID (Port VLAN ID)
-    vlan = Dot1Q(vlan=vlan_id, prio=7)  # 'prio=7' sets the PCP (Priority Code Point) to 7
+    # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
+    vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
 # RSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
 bpdu_flags = 0b00000000  # No Proposal, No Agreement
@@ -59,7 +59,7 @@ else:
     packet = ether / vlan / llc / bpdu
 
 try:
-    print(f"Sending RSTP BPDU packets with PVID {vlan_id}... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets with PVID {pvid}... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
