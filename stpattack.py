@@ -1,14 +1,25 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, STP, Dot1Q
 
-# Ask for user input on VLAN ID
+# Ask for user input on priority and VLAN ID
+user_priority = int(input("Enter the bridge priority (should be a multiple of 4096): "))
 vlan_id = int(input("Enter the VLAN ID (use 1 for non-trunk/access port simulation): "))
+
+# Ensure the priority is correctly formatted
+priority = user_priority if user_priority % 4096 == 0 else (user_priority // 4096) * 4096
+
+# Calculate the final bridge priority including the VLAN ID
+bridge_priority = priority + vlan_id  # Ensure the sum does not exceed 65535
 
 # Interface MAC address
 src_mac = get_if_hwaddr("eth0")
 
-# Ethernet frame for STP BPDUs
-ether = Ether(dst="01:80:C2:00:00:00", src=src_mac)
+# Set destination MAC address for PVST+ BPDUs
+# Cisco-specific multicast MAC address for PVST+
+dst_mac = "01:00:0C:CC:CC:CD"
+
+# Ethernet frame for STP BPDUs with PVST+ destination MAC
+ether = Ether(dst=dst_mac, src=src_mac)
 
 # VLAN tag for trunk port simulation (for non-trunk/access, no VLAN tag will be added)
 if vlan_id == 1:
@@ -23,10 +34,10 @@ bpdu = STP(
     version=0,
     bpdutype=0,
     bpduflags=0,
-    rootid=32768 + vlan_id,  # Bridge priority (VLAN specific)
+    rootid=bridge_priority,  # Bridge priority (VLAN specific)
     rootmac=src_mac,
     pathcost=4,
-    bridgeid=32768 + vlan_id,  # Bridge ID should include the VLAN
+    bridgeid=bridge_priority,  # Bridge ID should include the VLAN
     bridgemac=src_mac,
     portid=0x8001,
     age=1,
