@@ -61,8 +61,8 @@ if vlan is None:
 else:
     # Create the PVID TLV to append at the end of the BPDU for trunk ports
     pvid_tlv = PVID_TLV(vlan_id=pvid)
-    # Append the PVID TLV to the BPDU for trunk ports
-    packet = ether / vlan / llc / bpdu / pvid_tlv
+    # Manually append the BPDU and the PVID TLV to make sure they are combined properly
+    packet = ether / vlan / llc / bpdu / Raw(pvid_tlv)
 
 # Send the packet and print the packet size
 try:
