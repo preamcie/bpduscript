@@ -52,4 +52,37 @@ else:
 
 # BPDU packet with the Originating VLAN field inside the BPDU structure
 bpdu = ExtendedSTP(
-   
+    protocol_id=0,
+    version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
+    bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
+    bpduflags=0x3C,  # BPDU flags for Forwarding, Learning, and Designated Port
+    rootid=priority,  # Root Bridge priority (does not include PVID)
+    rootmac=src_mac,
+    pathcost=4,
+    bridgeid=priority,  # Bridge ID (does not include PVID directly)
+    bridgemac=src_mac,
+    portid=0x8001,  # Port ID remains the same
+    age=1,
+    maxage=20,
+    hellotime=2,
+    fwddelay=15,
+    originating_vlan=pvid  # Insert the Originating VLAN directly into the BPDU
+)
+
+# Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
+llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
+
+# Construct the packet
+if vlan is None:
+    # For access port (PVID = 1), send the BPDU without a VLAN tag
+    packet = ether / llc / bpdu
+else:
+    # For trunk port (PVID other than 1), send the BPDU with the PVID in the 802.1Q tag
+    packet = ether / vlan / llc / bpdu
+
+try:
+    print(f"Sending RSTP BPDU packets with Originating VLAN {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
+    while True:
+        sendp(packet, iface="eth0", verbose=False)
+except KeyboardInterrupt:
+    print("Stopped sending packets.")
