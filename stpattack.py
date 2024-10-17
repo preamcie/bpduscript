@@ -8,7 +8,7 @@ vlan_id = int(input("Enter the VLAN ID (use 1 for non-trunk/access port simulati
 # Ensure the priority is correctly formatted
 priority = user_priority if user_priority % 4096 == 0 else (user_priority // 4096) * 4096
 
-# Calculate the final bridge priority including the VLAN ID
+# Calculate the final bridge priority by combining priority and VLAN ID (Originating VLAN)
 bridge_priority = priority + vlan_id  # Ensure the sum does not exceed 65535
 
 # Interface MAC address
@@ -28,21 +28,20 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with PCP value set to 7 for network control
     vlan = Dot1Q(vlan=vlan_id, prio=7)  # 'prio=7' sets the PCP (Priority Code Point) to 7
 
-# Set RSTP-specific BPDU flags:
-# Proposal (Bit 1) = 1, Agreement (Bit 7) = 1, Port Role (Bits 2-4) = Designated (3)
-bpdu_flags = 0b10000010  # Binary: Agreement (Bit 7) + Proposal (Bit 1) + Designated Port Role (Bits 2-4 = 3)
+# RSTP BPDU with Originating VLAN set in the bridge identifier (System ID Extension)
+bpdu_flags = 0b00000000  # No Proposal, No Agreement
 
 # RSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
 bpdu = STP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
-    bpduflags=bpdu_flags,  # Set BPDU flags (Proposal, Agreement, Port Role)
-    rootid=bridge_priority,  # Bridge priority (VLAN specific)
+    bpduflags=bpdu_flags,  # Set BPDU flags (No Proposal, No Agreement)
+    rootid=bridge_priority,  # Root Bridge priority (includes Originating VLAN)
     rootmac=src_mac,
     pathcost=4,
-    bridgeid=bridge_priority,  # Bridge ID should include the VLAN
+    bridgeid=bridge_priority,  # Bridge ID should include the VLAN (System ID Extension)
     bridgemac=src_mac,
-    portid=0x8001,
+    portid=0x8001,  # Port ID remains the same
     age=1,
     maxage=20,
     hellotime=2,
@@ -61,7 +60,7 @@ else:
     packet = ether / vlan / llc / bpdu
 
 try:
-    print("Sending RSTP BPDU packets with Proposal, Agreement, and Designated Port Role... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets with Originating VLAN {vlan_id}... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
