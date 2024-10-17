@@ -3,25 +3,11 @@ from scapy.layers.l2 import Ether, LLC, Dot1Q
 from scapy.packet import Packet
 from scapy.fields import ByteField, XShortField, MACField, ShortField
 
-# Custom STP packet structure to include an Originating VLAN field
-class CustomSTP(Packet):
-    name = "CustomSTP"
+# Custom external Originating VLAN layer
+class OriginatingVLAN(Packet):
+    name = "OriginatingVLAN"
     fields_desc = [
-        ByteField("protocol_id", 0),         # Protocol Identifier (STP uses 0)
-        ByteField("version", 2),             # Protocol Version (RSTP uses 2)
-        ByteField("bpdutype", 0x02),         # BPDU Type (0x02 for Rapid Spanning Tree)
-        ByteField("bpduflags", 0x3C),        # BPDU Flags (0x3C for Forwarding, Learning, Designated Port Role)
-        XShortField("rootid", 0),            # Root Bridge Identifier (Bridge Priority + System ID Extension)
-        MACField("rootmac", "00:00:00:00:00:00"),  # Root Bridge MAC Address
-        XShortField("pathcost", 0),          # Path Cost to the Root Bridge
-        XShortField("bridgeid", 0),          # Bridge Identifier (Bridge Priority + System ID Extension)
-        MACField("bridgemac", "00:00:00:00:00:00"),  # Bridge MAC Address
-        ShortField("portid", 0x8001),        # Port Identifier
-        ByteField("age", 1),                 # Message Age
-        ByteField("maxage", 20),             # Maximum Age
-        ByteField("hellotime", 2),           # Hello Time
-        ByteField("fwddelay", 15),           # Forward Delay
-        XShortField("originating_vlan", 1)   # Custom Originating VLAN field (PVID)
+        XShortField("originating_vlan", 1)  # External Originating VLAN field
     ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
@@ -48,9 +34,8 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# Construct custom BPDU with Originating VLAN field
-bpdu = CustomSTP(
-    protocol_id=0,
+# BPDU packet for STP
+bpdu = STP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
     bpduflags=0x3C,  # BPDU flags for Forwarding, Learning, and Designated Port
@@ -63,20 +48,22 @@ bpdu = CustomSTP(
     age=1,
     maxage=20,
     hellotime=2,
-    fwddelay=15,
-    originating_vlan=pvid  # Custom field for the originating VLAN
+    fwddelay=15
 )
 
-# Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
-llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
+# Add LLC layer (dsap=0xAA, ssap=0xAA, ctrl=3)
+llc = LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
 
-# Construct the packet with LLC and optionally VLAN tagging
+# Add external Originating VLAN field
+originating_vlan_layer = OriginatingVLAN(originating_vlan=pvid)
+
+# Construct the packet
 if vlan is None:
     # For access port (PVID = 1), send the BPDU without a VLAN tag
-    packet = ether / llc / bpdu
+    packet = ether / llc / bpdu / originating_vlan_layer
 else:
     # For trunk port (PVID other than 1), send the BPDU with the PVID in the 802.1Q tag
-    packet = ether / vlan / llc / bpdu
+    packet = ether / vlan / llc / bpdu / originating_vlan_layer
 
 try:
     print(f"Sending RSTP BPDU packets with Originating VLAN {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
