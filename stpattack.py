@@ -1,13 +1,15 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, Dot1Q
 from scapy.packet import Packet
-from scapy.fields import ByteField, XShortField, MACField, ShortField
+from scapy.fields import ByteField, XShortField, ShortField, MACField
 
 # Custom external Originating VLAN layer
 class OriginatingVLAN(Packet):
     name = "OriginatingVLAN"
     fields_desc = [
-        XShortField("originating_vlan", 1)  # External Originating VLAN field
+        XShortField("type", 0x0000),         # Type: Originating VLAN (0x0000)
+        ShortField("length", 2),             # Length: 2 bytes
+        ShortField("vlan_id", 20)            # Originating VLAN (PVID), default is 20
     ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
@@ -55,7 +57,7 @@ bpdu = STP(
 llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
 
 # Add external Originating VLAN field
-originating_vlan_layer = OriginatingVLAN(originating_vlan=pvid)
+originating_vlan_layer = OriginatingVLAN(type=0x0000, length=2, vlan_id=pvid)
 
 # Construct the packet
 if vlan is None:
