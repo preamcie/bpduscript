@@ -1,63 +1,65 @@
-from scapy.all import *
-from scapy.layers.l2 import Ether, LLC, Dot1Q
+import socket
+import struct
 
-# Ask for user input on priority and PVID (Port VLAN ID)
-user_priority = int(input("Enter the bridge priority (should be a multiple of 4096): "))
-pvid = int(input("Enter the PVID (Port VLAN ID): "))  # This is the VLAN ID that will be used as the PVID (originating VLAN)
+def create_pvst_packet(bridge_priority, vlan_id):
+    # Ethernet header components
+    dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
+    src_mac = b'\xb0\x8d\x57\x72\xcc\x0b'  # Source MAC as per your example
+    eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
 
-# Ensure the priority is correctly formatted
-priority = user_priority if user_priority % 4096 == 0 else (user_priority // 4096) * 4096
+    # VLAN Tag
+    vlan_prio_cfi_id = struct.pack('!H', (0 << 13) | (0 << 12) | vlan_id)  # CFI: 0, ID: VLAN ID
 
-# Interface MAC address
-src_mac = get_if_hwaddr("eth0")
+    # EtherType for SNAP encapsulated LLC
+    ether_type_llc_snap = struct.pack('!H', 0x8870)
 
-# Set destination MAC address for PVST+ BPDUs (Cisco-specific)
-dst_mac = "01:00:0C:CC:CC:CD"
+    # LLC Header
+    llc_header = b'\xaa\xaa\x03'  # DSAP, SSAP, Control field
 
-# Ethernet frame for STP BPDUs with PVST+ destination MAC
-ether = Ether(dst=dst_mac, src=src_mac)
+    # SNAP Header
+    snap_header = b'\x00\x00\x0c' + struct.pack('!H', 0x010b)  # OUI and PID for PVST+
 
-# Correctly handle the PVID (Port VLAN ID) in the 802.1Q header for trunk ports
-if pvid == 1:
-    # If PVID is 1 (access port), send an untagged BPDU without PVID TLV
-    vlan = None  # No VLAN tag for access port (default VLAN 1)
-else:
-    # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
-    vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
+    # BPDU Data for PVST+
+    root_priority_bytes = struct.pack('!H', bridge_priority)
+    bridge_priority_bytes = struct.pack('!H', bridge_priority)
+    root_identifier = root_priority_bytes + src_mac
+    bridge_identifier = bridge_priority_bytes + src_mac
 
-# BPDU packet (STP BPDU with standard fields)
-bpdu = STP(
-    version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
-    bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
-    bpduflags=0x3C,  # BPDU flags for Forwarding, Learning, and Designated Port
-    rootid=priority,  # Root Bridge priority (does not include PVID)
-    rootmac=src_mac,
-    pathcost=4,
-    bridgeid=priority,  # Bridge ID (does not include PVID directly)
-    bridgemac=src_mac,
-    portid=0x8001,  # Port ID remains the same
-    age=1,
-    maxage=20,
-    hellotime=2,
-    fwddelay=15
-)
+    stp_bpdu = (
+        b'\x00\x00'  # Protocol Identifier
+        + b'\x02'    # Version: Rapid Spanning Tree
+        + b'\x02'    # BPDU Type: Rapid/Multiple Spanning Tree
+        + b'\x3c'    # BPDU flags: Forwarding, Learning, Port Role: Designated
+        + root_identifier
+        + b'\x00\x00\x4e\x20'  # Root Path Cost: 20000
+        + bridge_identifier
+        + b'\x80\x0b'  # Port Identifier
+        + b'\x00\x01'  # Message Age: 1
+        + b'\x00\x14'  # Max Age: 20
+        + b'\x00\x02'  # Hello Time: 2
+        + b'\x00\x0f'  # Forward Delay: 15
+        + b'\x00'     # Version 1 Length
+        + b'\x00\x00' + b'\x00\x02' + struct.pack('!H', vlan_id)  # Originating VLAN (PVID) TLV
+    )
 
-# Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
-llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
+    # Assemble the full packet
+    packet = dst_mac + src_mac + eth_type + vlan_prio_cfi_id + ether_type_llc_snap + llc_header + snap_header + stp_bpdu
+    return packet
 
-# Construct the packet (without the PVID TLV)
-if vlan is None:
-    # For access port (PVID = 1), send the BPDU without a VLAN tag or PVID TLV
-    packet = ether / llc / bpdu
-else:
-    # For trunk ports, send the BPDU with the VLAN tag
-    packet = ether / vlan / llc / bpdu
+def send_packet(packet, interface='eth0'):
+    # Create a raw socket
+    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
+    
+    # Bind it to the interface
+    sock.bind((interface, 0))
+    
+    # Send the packet
+    sock.send(packet)
+    sock.close()
+    print("Packet sent on interface {}".format(interface))
 
-# Send the packet and print the packet size
-try:
-    print(f"Sending RSTP BPDU packets without PVID TLV... Press Ctrl+C to stop.")
-    while True:
-        sendp(packet, iface="eth0", verbose=False)
-        print(f"Packet size: {len(packet)} bytes")  # Print packet size to verify the default size
-except KeyboardInterrupt:
-    print("Stopped sending packets.")
+if __name__ == '__main__':
+    bridge_priority = int(input("Enter bridge priority (e.g., 24576): "))
+    vlan_id = int(input("Enter VLAN ID: "))
+    packet = create_pvst_packet(bridge_priority, vlan_id)
+    send_packet(packet)  # Using 'eth0' as default
