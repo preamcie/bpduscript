@@ -1,5 +1,5 @@
 from scapy.all import *
-from scapy.layers.l2 import Ether, Dot1Q
+from scapy.layers.l2 import Ether, LLC, Dot1Q
 from scapy.packet import Packet
 from scapy.fields import ByteField, XShortField, MACField, ShortField
 
@@ -67,13 +67,16 @@ bpdu = CustomSTP(
     originating_vlan=pvid  # Custom field for the originating VLAN
 )
 
-# Construct the packet (without LLC)
+# Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
+llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
+
+# Construct the packet with LLC and optionally VLAN tagging
 if vlan is None:
     # For access port (PVID = 1), send the BPDU without a VLAN tag
-    packet = ether / bpdu
+    packet = ether / llc / bpdu
 else:
     # For trunk port (PVID other than 1), send the BPDU with the PVID in the 802.1Q tag
-    packet = ether / vlan / bpdu
+    packet = ether / vlan / llc / bpdu
 
 try:
     print(f"Sending RSTP BPDU packets with Originating VLAN {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
