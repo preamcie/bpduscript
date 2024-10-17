@@ -1,14 +1,5 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, Dot1Q
-from scapy.fields import XShortField, ShortField
-
-# Define the PVID TLV (Type-Length-Value) that will be appended to the BPDU
-class PVID_TLV(Packet):
-    fields_desc = [
-        XShortField("type", 0x0000),      # Type: PVID (0x0000)
-        ShortField("length", 2),          # Length: 2 bytes
-        ShortField("vlan_id", 0)          # The VLAN ID (PVID)
-    ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
 user_priority = int(input("Enter the bridge priority (should be a multiple of 4096): "))
@@ -54,21 +45,19 @@ bpdu = STP(
 # Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
 llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
 
-# For trunk ports, append the PVID TLV after the BPDU
+# Construct the packet (without the PVID TLV)
 if vlan is None:
     # For access port (PVID = 1), send the BPDU without a VLAN tag or PVID TLV
     packet = ether / llc / bpdu
 else:
-    # Create the PVID TLV to append at the end of the BPDU for trunk ports
-    pvid_tlv = PVID_TLV(vlan_id=pvid)
-    # Manually append the BPDU and the PVID TLV to make sure they are combined properly
-    packet = ether / vlan / llc / bpdu / Raw(pvid_tlv)
+    # For trunk ports, send the BPDU with the VLAN tag
+    packet = ether / vlan / llc / bpdu
 
 # Send the packet and print the packet size
 try:
-    print(f"Sending RSTP BPDU packets with PVID TLV (VLAN {pvid})... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets without PVID TLV... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
-        print(f"Packet size: {len(packet)} bytes")  # Print packet size to verify 68 bytes
+        print(f"Packet size: {len(packet)} bytes")  # Print packet size to verify the default size
 except KeyboardInterrupt:
     print("Stopped sending packets.")
