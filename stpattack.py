@@ -1,11 +1,17 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, Dot1Q
-from scapy.fields import ShortField
+from scapy.fields import XShortField, ShortField
 
-# Extend the existing STP BPDU to include Originating VLAN field
+# Extend the standard STP BPDU with the Originating VLAN TLV for trunk ports
 class ExtendedSTP(STP):
-    fields_desc = STP.fields_desc + [
-        ShortField("originating_vlan", 0)  # Add the Originating VLAN (PVID) field directly inside the STP BPDU
+    fields_desc = STP.fields_desc  # No modification needed here, we append TLV later
+
+# Define the PVID TLV (Type-Length-Value)
+class PVID_TLV(Packet):
+    fields_desc = [
+        XShortField("type", 0x0000),      # Type: PVID (0x0000)
+        ShortField("length", 2),          # Length: 2 bytes
+        ShortField("vlan_id", 0)          # The VLAN ID (PVID)
     ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
@@ -32,7 +38,7 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# BPDU packet with the Originating VLAN field added inside the STP BPDU
+# BPDU packet
 bpdu = ExtendedSTP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
@@ -46,23 +52,24 @@ bpdu = ExtendedSTP(
     age=1,
     maxage=20,
     hellotime=2,
-    fwddelay=15,
-    originating_vlan=pvid  # The actual PVID (VLAN ID) added directly inside the BPDU
+    fwddelay=15
 )
 
 # Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
 llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
 
-# Construct the packet
+# Construct the packet for trunk ports (with PVID TLV at the end)
 if vlan is None:
-    # For access port (PVID = 1), send the BPDU without a VLAN tag
+    # For access port (PVID = 1), send the BPDU without a VLAN tag or PVID TLV
     packet = ether / llc / bpdu
 else:
-    # For trunk port (PVID other than 1), send the BPDU with the PVID in the 802.1Q tag
-    packet = ether / vlan / llc / bpdu
+    # For trunk ports, append the PVID TLV after the BPDU
+    pvid_tlv = PVID_TLV(vlan_id=pvid)  # Create the PVID TLV
+    packet = ether / vlan / llc / bpdu / pvid_tlv  # Append the PVID TLV
 
+# Send the packet
 try:
-    print(f"Sending RSTP BPDU packets with Originating VLAN {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets with PVID TLV (VLAN {pvid})... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
