@@ -51,8 +51,8 @@ bpdu = STP(
     fwddelay=15
 )
 
-# Add LLC layer (dsap=0xAA, ssap=0xAA, ctrl=3)
-llc = LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
+# Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
+llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
 
 # Add external Originating VLAN field
 originating_vlan_layer = OriginatingVLAN(originating_vlan=pvid)
