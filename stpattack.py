@@ -1,13 +1,11 @@
 from scapy.all import *
 from scapy.layers.l2 import Ether, LLC, Dot1Q
-from scapy.fields import ShortField, XShortField
+from scapy.fields import ShortField
 
-# Extend the existing STP BPDU to include Originating VLAN fields as a TLV
+# Extend the existing STP BPDU to include Originating VLAN field
 class ExtendedSTP(STP):
     fields_desc = STP.fields_desc + [
-        XShortField("originating_vlan_type", 0x0000),  # Type: Originating VLAN (0x0000)
-        ShortField("originating_vlan_length", 2),      # Length: 2 bytes
-        ShortField("originating_vlan", 0)              # Originating VLAN (PVID)
+        ShortField("originating_vlan", 0)  # Add the Originating VLAN (PVID) field directly inside the STP BPDU
     ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
@@ -34,7 +32,7 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# BPDU packet with the Originating VLAN TLV fields inside the STP BPDU structure
+# BPDU packet with the Originating VLAN field added inside the STP BPDU
 bpdu = ExtendedSTP(
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
@@ -49,9 +47,7 @@ bpdu = ExtendedSTP(
     maxage=20,
     hellotime=2,
     fwddelay=15,
-    originating_vlan_type=0x0000,  # Originating VLAN Type (0x0000)
-    originating_vlan_length=2,     # Length of the Originating VLAN field (2 bytes)
-    originating_vlan=pvid          # The actual PVID (VLAN ID)
+    originating_vlan=pvid  # The actual PVID (VLAN ID) added directly inside the BPDU
 )
 
 # Add LLC layer (dsap=0x42, ssap=0x42, ctrl=3)
