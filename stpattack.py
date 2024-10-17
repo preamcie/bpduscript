@@ -14,8 +14,7 @@ bridge_priority = priority + vlan_id  # Ensure the sum does not exceed 65535
 # Interface MAC address
 src_mac = get_if_hwaddr("eth0")
 
-# Set destination MAC address for PVST+ BPDUs
-# Cisco-specific multicast MAC address for PVST+
+# Set destination MAC address for PVST+ BPDUs (Cisco-specific)
 dst_mac = "01:00:0C:CC:CC:CD"
 
 # Ethernet frame for STP BPDUs with PVST+ destination MAC
@@ -26,8 +25,8 @@ if vlan_id == 1:
     # For non-trunk (or VLAN 1), do not use VLAN tagging
     vlan = None
 else:
-    # For trunk ports, use 802.1Q VLAN tagging
-    vlan = Dot1Q(vlan=vlan_id)
+    # For trunk ports, use 802.1Q VLAN tagging with PCP value set to 7 for network control
+    vlan = Dot1Q(vlan=vlan_id, prio=7)  # 'prio=7' sets the PCP (Priority Code Point) to 7
 
 # STP Configuration BPDU
 bpdu = STP(
@@ -54,11 +53,11 @@ if vlan is None:
     # For non-trunk/access port (VLAN 1), no VLAN tag
     packet = ether / llc / bpdu
 else:
-    # For trunk port (other VLANs), add VLAN tag
+    # For trunk port (other VLANs), add VLAN tag with priority 7
     packet = ether / vlan / llc / bpdu
 
 try:
-    print("Sending PVST+ BPDU packets... Press Ctrl+C to stop.")
+    print("Sending PVST+ BPDU packets with priority 7... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
