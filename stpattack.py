@@ -28,10 +28,10 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with PCP value set to 7 for network control
     vlan = Dot1Q(vlan=vlan_id, prio=7)  # 'prio=7' sets the PCP (Priority Code Point) to 7
 
-# RSTP Configuration BPDU (Protocol Version Identifier set to 2 for Rapid Spanning Tree)
+# RSTP/MSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
 bpdu = STP(
-    version=2,  # Version 2 for RSTP
-    bpdutype=0,  # Configuration BPDU
+    version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
+    bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
     bpduflags=0,
     rootid=bridge_priority,  # Bridge priority (VLAN specific)
     rootmac=src_mac,
@@ -57,7 +57,7 @@ else:
     packet = ether / vlan / llc / bpdu
 
 try:
-    print("Sending RSTP BPDU packets with priority 7... Press Ctrl+C to stop.")
+    print("Sending RSTP/MSTP BPDU packets with BPDU Type 0x02... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
