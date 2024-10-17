@@ -1,15 +1,35 @@
 from scapy.all import *
-from scapy.layers.l2 import Ether, LLC, STP, Dot1Q
+from scapy.layers.l2 import Ether, LLC, Dot1Q
+from scapy.packet import Packet
+from scapy.fields import ByteField, XShortField, MACField
+
+# Custom STP packet structure to include an Originating VLAN field
+class CustomSTP(Packet):
+    name = "CustomSTP"
+    fields_desc = [
+        ByteField("protocol_id", 0),     # Protocol Identifier
+        ByteField("version", 2),         # Protocol Version (RSTP)
+        ByteField("bpdutype", 0x02),     # BPDU Type (0x02 for Rapid Spanning Tree)
+        ByteField("bpduflags", 0x3C),    # BPDU Flags (0x3C for Forwarding, Learning, Designated Port Role)
+        XShortField("rootid", 0),        # Root Bridge Identifier (Bridge Priority + MAC)
+        MACField("rootmac", "00:00:00:00:00:00"),  # Root Bridge MAC
+        XShortField("pathcost", 0),      # Path Cost to the Root Bridge
+        XShortField("bridgeid", 0),      # Bridge Identifier (Bridge Priority + MAC)
+        MACField("bridgemac", "00:00:00:00:00:00"),  # Bridge MAC
+        XShortField("portid", 0x8001),   # Port Identifier
+        ByteField("age", 0),             # Message Age
+        ByteField("maxage", 20),         # Max Age
+        ByteField("hellotime", 2),       # Hello Time
+        ByteField("fwddelay", 15),       # Forward Delay
+        XShortField("originating_vlan", 1)  # Custom Originating VLAN field (PVID)
+    ]
 
 # Ask for user input on priority and PVID (Port VLAN ID)
 user_priority = int(input("Enter the bridge priority (should be a multiple of 4096): "))
-pvid = int(input("Enter the PVID (Port VLAN ID): "))  # This is the VLAN ID that will be used as the PVID
+pvid = int(input("Enter the PVID (Port VLAN ID): "))  # This is the VLAN ID that will be used as the PVID (originating VLAN)
 
 # Ensure the priority is correctly formatted
 priority = user_priority if user_priority % 4096 == 0 else (user_priority // 4096) * 4096
-
-# Calculate the final bridge priority (System ID Extension typically includes the VLAN ID)
-bridge_priority = priority  # Set priority without adding VLAN here, since PVID is handled by tagging
 
 # Interface MAC address
 src_mac = get_if_hwaddr("eth0")
@@ -28,29 +48,27 @@ else:
     # For trunk ports, use 802.1Q VLAN tagging with the correct PVID (Port VLAN ID)
     vlan = Dot1Q(vlan=pvid, prio=7, id=0)  # 'prio=7' sets the PCP (Priority Code Point) to 7, DEI is 0
 
-# Set BPDU flags to 0x3C (forwarding, learning, designated port role)
-# 0x3C = 00111100 (Forwarding = 1, Learning = 1, Designated Port Role = 011)
-bpdu_flags = 0x3C
-
-# RSTP BPDU (BPDU Type set to 0x02 for Rapid/Multiple Spanning Tree)
-bpdu = STP(
+# Construct custom BPDU with Originating VLAN field
+bpdu = CustomSTP(
+    protocol_id=0,
     version=2,  # Version 2 for RSTP (Rapid Spanning Tree)
     bpdutype=0x02,  # 0x02 for Rapid/Multiple Spanning Tree BPDU
-    bpduflags=bpdu_flags,  # Set BPDU flags (Forwarding, Learning, Designated Port Role)
-    rootid=bridge_priority,  # Root Bridge priority (does not include PVID)
+    bpduflags=0x3C,  # BPDU flags for Forwarding, Learning, and Designated Port
+    rootid=priority,  # Root Bridge priority (does not include PVID)
     rootmac=src_mac,
     pathcost=4,
-    bridgeid=bridge_priority,  # Bridge ID (does not include PVID directly)
+    bridgeid=priority,  # Bridge ID (does not include PVID directly)
     bridgemac=src_mac,
     portid=0x8001,  # Port ID remains the same
     age=1,
     maxage=20,
     hellotime=2,
-    fwddelay=15
+    fwddelay=15,
+    originating_vlan=pvid  # Custom field for the originating VLAN
 )
 
-# Encapsulate in LLC
-llc = LLC(dsap=0x42, ssap=0x42, ctrl=3)
+# Encapsulate in LLC with correct DSAP/SSAP (0xAA for SNAP header)
+llc = LLC(dsap=0xAA, ssap=0xAA, ctrl=3)
 
 # Construct the packet
 if vlan is None:
@@ -61,7 +79,7 @@ else:
     packet = ether / vlan / llc / bpdu
 
 try:
-    print(f"Sending RSTP BPDU packets with PVID {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
+    print(f"Sending RSTP BPDU packets with Originating VLAN {pvid} and BPDU Flags 0x3C... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
 except KeyboardInterrupt:
