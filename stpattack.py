@@ -64,10 +64,11 @@ else:
     # Append the PVID TLV to the BPDU for trunk ports
     packet = ether / vlan / llc / bpdu / pvid_tlv
 
-# Send the packet
+# Send the packet and print the packet size
 try:
     print(f"Sending RSTP BPDU packets with PVID TLV (VLAN {pvid})... Press Ctrl+C to stop.")
     while True:
         sendp(packet, iface="eth0", verbose=False)
+        print(f"Packet size: {len(packet)} bytes")  # Print packet size to verify 68 bytes
 except KeyboardInterrupt:
     print("Stopped sending packets.")
