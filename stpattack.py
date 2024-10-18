@@ -14,8 +14,8 @@ def create_pvst_packet(bridge_priority, vlan_id):
     # EtherType for SNAP encapsulated LLC
     ether_type_llc_snap = struct.pack('!H', 0x8870)
 
-    # LLC Header
-    llc_header = b'\xaa\xaa\x03'  # DSAP, SSAP, Control field
+    # Custom LLC Header (dsap=0x42, ssap=0x42, ctrl=3)
+    llc_header = struct.pack('!BBB', 0x42, 0x42, 0x03)  # DSAP=0x42, SSAP=0x42, Control=3
 
     # SNAP Header
     snap_header = b'\x00\x00\x0c' + struct.pack('!H', 0x010b)  # OUI and PID for PVST+
