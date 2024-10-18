@@ -6,11 +6,11 @@ import time
 def get_mac_address(interface):
     # Use netifaces to get the MAC address of the specified interface
     mac = ni.ifaddresses(interface)[ni.AF_LINK][0]['addr']
-    # Convert MAC address string to bytes like b'\x01\x00\x0c\xcc\xcc\xcd'
-    mac_bytes = bytes.fromhex(mac.replace(":", ""))
+    # Convert MAC address to byte format like b'\xb4\x45\x06\xae\x38\x8e'
+    mac_bytes = bytes.fromhex(mac.replace(':', ''))
     return mac_bytes
 
-def create_pvst_packet(bridge_priority, vlan_id, src_mac):
+def create_pvst_packet(bridge_priority, vlan_id, mac_bytes):
     # Ethernet header components
     dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
     eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
@@ -30,8 +30,8 @@ def create_pvst_packet(bridge_priority, vlan_id, src_mac):
     # BPDU Data for PVST+
     root_priority_bytes = struct.pack('!H', bridge_priority)
     bridge_priority_bytes = struct.pack('!H', bridge_priority)
-    root_identifier = root_priority_bytes + src_mac
-    bridge_identifier = bridge_priority_bytes + src_mac
+    root_identifier = root_priority_bytes + mac_bytes
+    bridge_identifier = bridge_priority_bytes + mac_bytes
 
     stp_bpdu = (
         b'\x00\x00'  # Protocol Identifier
@@ -51,7 +51,7 @@ def create_pvst_packet(bridge_priority, vlan_id, src_mac):
     )
 
     # Assemble the full packet
-    packet = dst_mac + src_mac + eth_type + vlan_prio_cfi_id + ether_type_llc_snap + llc_header + snap_header + stp_bpdu
+    packet = dst_mac + mac_bytes + eth_type + vlan_prio_cfi_id + ether_type_llc_snap + llc_header + snap_header + stp_bpdu
     return packet
 
 def send_packet(packet, interface='eth0'):
@@ -78,8 +78,8 @@ if __name__ == '__main__':
     vlan_id = int(input("Enter VLAN ID: "))
 
     # Dynamically get the source MAC address from the interface
-    src_mac = get_mac_address(interface)
-    print(f"Using source MAC: {'-'.join(f'{b:02x}' for b in src_mac)}")
+    mac_bytes = get_mac_address(interface)
+    print(f"Using source MAC: {':'.join(f'{b:02x}' for b in mac_bytes)}")
 
-    packet = create_pvst_packet(bridge_priority, vlan_id, src_mac)
+    packet = create_pvst_packet(bridge_priority, vlan_id, mac_bytes)
     send_packet(packet, interface)  # Using 'eth0' as default
