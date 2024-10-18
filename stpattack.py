@@ -1,16 +1,10 @@
 import socket
 import struct
-import time
-from scapy.all import get_if_hwaddr  # Importing scapy's get_if_hwaddr to get MAC address
 
-def create_pvst_packet(bridge_priority, vlan_id, interface):
+def create_pvst_packet(bridge_priority, vlan_id):
     # Ethernet header components
     dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
-    
-    # Dynamically retrieve the source MAC address of the specified interface
-    src_mac_str = get_if_hwaddr(interface)
-    src_mac = bytes.fromhex(src_mac_str.replace(":", ""))  # Convert MAC address to byte format
-    
+    src_mac = b'\xb4\x45\x06\xae\x38\x8e'  # Updated Source MAC as per your input
     eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
 
     # VLAN Tag
@@ -19,8 +13,8 @@ def create_pvst_packet(bridge_priority, vlan_id, interface):
     # EtherType for SNAP encapsulated LLC
     ether_type_llc_snap = struct.pack('!H', 0x8870)
 
-    # Custom LLC Header (dsap=0x42, ssap=0x42, ctrl=3)
-    llc_header = struct.pack('!BBB', 0x42, 0x42, 0x03)  # DSAP=0x42, SSAP=0x42, Control=3
+    # LLC Header
+    llc_header = b'\xaa\xaa\x03'  # DSAP, SSAP, Control field
 
     # SNAP Header
     snap_header = b'\x00\x00\x0c' + struct.pack('!H', 0x010b)  # OUI and PID for PVST+
@@ -62,17 +56,10 @@ def send_packet(packet, interface='eth0'):
     # Send the packet
     sock.send(packet)
     sock.close()
+    print("Packet sent on interface {}".format(interface))
 
 if __name__ == '__main__':
     bridge_priority = int(input("Enter bridge priority (e.g., 24576): "))
     vlan_id = int(input("Enter VLAN ID: "))
-    interface = 'eth0'  # You can change the interface if needed
-    packet = create_pvst_packet(bridge_priority, vlan_id, interface)
-    
-    try:
-        while True:
-            send_packet(packet, interface)  # Sending the packet
-            print(f"Packet sent on {interface}.")
-            time.sleep(1)  # Delay between packets (1 second). Adjust this delay if needed.
-    except KeyboardInterrupt:
-        print("Packet sending stopped.")
+    packet = create_pvst_packet(bridge_priority, vlan_id)
+    send_packet(packet)  # Using 'eth0' as default
