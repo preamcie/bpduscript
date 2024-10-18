@@ -1,5 +1,6 @@
 import socket
 import struct
+import time
 
 def create_pvst_packet(bridge_priority, vlan_id):
     # Ethernet header components
@@ -52,11 +53,17 @@ def send_packet(packet, interface='eth0'):
     
     # Bind it to the interface
     sock.bind((interface, 0))
-    
-    # Send the packet
-    sock.send(packet)
-    sock.close()
-    print("Packet sent on interface {}".format(interface))
+
+    try:
+        while True:
+            # Send the packet
+            sock.send(packet)
+            print("Packet sent on interface {}".format(interface))
+            time.sleep(1)  # Optional: sleep for 1 second between packets
+    except KeyboardInterrupt:
+        print("\nStopped sending packets.")
+    finally:
+        sock.close()
 
 if __name__ == '__main__':
     bridge_priority = int(input("Enter bridge priority (e.g., 24576): "))
