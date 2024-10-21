@@ -1,9 +1,10 @@
 import socket
 import struct
+import time
 
 def create_pvst_packet(bridge_priority, vlan_id):
     # Ethernet header components
-    dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST +
+    dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
     src_mac = b'\xb4\x45\x06\xae\x38\x96'  # Updated Source MAC as per your input
     eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
 
@@ -27,8 +28,8 @@ def create_pvst_packet(bridge_priority, vlan_id):
 
     # BPDU Timers (in 256ths of a second)
     message_age = 1 * 256      # 1 second in 256ths
-    max_age = 120 * 256         # 20 seconds in 256ths
-    hello_time = 60 * 256       # 2 seconds in 256ths
+    max_age = 120 * 256         # 120 seconds in 256ths
+    hello_time = 60 * 256       # 60 seconds in 256ths
     forward_delay = 15 * 256   # 15 seconds in 256ths
 
     stp_bpdu = (
@@ -41,8 +42,8 @@ def create_pvst_packet(bridge_priority, vlan_id):
         + bridge_identifier
         + b'\x80\x0b'  # Port Identifier
         + struct.pack('!H', message_age)  # Message Age: 1 second
-        + struct.pack('!H', max_age)      # Max Age: 20 seconds
-        + struct.pack('!H', hello_time)   # Hello Time: 2 seconds
+        + struct.pack('!H', max_age)      # Max Age: 120 seconds
+        + struct.pack('!H', hello_time)   # Hello Time: 60 seconds
         + struct.pack('!H', forward_delay)  # Forward Delay: 15 seconds
         + b'\x00'      # Version 1 Length
         + b'\x00\x00' + b'\x00\x02' + struct.pack('!H', vlan_id)  # Originating VLAN (PVID) TLV
@@ -60,9 +61,13 @@ def send_packet(packet, interface='eth0'):
     sock.bind((interface, 0))
 
     try:
-        # Send the packet once
-        sock.send(packet)
-        print("Packet sent on interface {}".format(interface))
+        while True:
+            # Send the packet every 60 seconds
+            sock.send(packet)
+            print("Packet sent on interface {}".format(interface))
+            time.sleep(60)  # Wait for 60 seconds before sending the next packet
+    except KeyboardInterrupt:
+        print("\nPacket sending stopped by user.")
     finally:
         sock.close()
 
