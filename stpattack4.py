@@ -3,7 +3,7 @@ import struct
 
 def create_pvst_packet(bridge_priority, vlan_id):
     # Ethernet header components
-    dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
+    dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST +
     src_mac = b'\xb4\x45\x06\xae\x38\x96'  # Updated Source MAC as per your input
     eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
 
@@ -37,7 +37,7 @@ def create_pvst_packet(bridge_priority, vlan_id):
         + b'\x02'    # BPDU Type: Rapid/Multiple Spanning Tree
         + b'\x3c'    # BPDU flags: Forwarding, Learning, Port Role: Root (00110100)
         + root_identifier
-        + b'\x00\x00\x4e\x20'  # Root Path Cost: 20000
+        + b'\x00\x00\x00\x01'  # Root Path Cost: 20000
         + bridge_identifier
         + b'\x80\x0b'  # Port Identifier
         + struct.pack('!H', message_age)  # Message Age: 1 second
