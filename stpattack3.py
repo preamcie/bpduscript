@@ -26,10 +26,10 @@ def create_pvst_packet(bridge_priority, vlan_id):
     bridge_identifier = bridge_priority_bytes + src_mac
 
     # BPDU Timers (in 256ths of a second)
-    message_age = 1 * 256      # 1 second in 256ths
-    max_age = 300 * 256         # 20 seconds in 256ths
-    hello_time = 300 * 256       # 2 seconds in 256ths
-    forward_delay = 15 * 256   # 15 seconds in 256ths
+    message_age = 1 * 256        # 1 second in 256ths
+    max_age = 180 * 256          # 180 seconds (3 minutes) in 256ths
+    hello_time = 180 * 256       # 180 seconds (3 minutes) in 256ths
+    forward_delay = 15 * 256     # 15 seconds in 256ths (you can adjust this if needed)
 
     stp_bpdu = (
         b'\x00\x00'  # Protocol Identifier
@@ -41,8 +41,8 @@ def create_pvst_packet(bridge_priority, vlan_id):
         + bridge_identifier
         + b'\x80\x0b'  # Port Identifier
         + struct.pack('!H', message_age)  # Message Age: 1 second
-        + struct.pack('!H', max_age)      # Max Age: 20 seconds
-        + struct.pack('!H', hello_time)   # Hello Time: 2 seconds
+        + struct.pack('!H', max_age)      # Max Age: 180 seconds (3 minutes)
+        + struct.pack('!H', hello_time)   # Hello Time: 180 seconds (3 minutes)
         + struct.pack('!H', forward_delay)  # Forward Delay: 15 seconds
         + b'\x00'      # Version 1 Length
         + b'\x00\x00' + b'\x00\x02' + struct.pack('!H', vlan_id)  # Originating VLAN (PVID) TLV
