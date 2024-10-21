@@ -38,7 +38,7 @@ def create_pvst_packet(bridge_priority, vlan_id):
         + b'\x02'    # BPDU Type: Rapid/Multiple Spanning Tree
         + b'\x3c'    # BPDU flags: Forwarding, Learning, Port Role: Root (00110100)
         + root_identifier
-        + b'\x00\x00\x00\x00'  # Root Path Cost: 
+        + b'\x00\x00\x00\x01'  # Root Path Cost: 
         + bridge_identifier
         + b'\x80\x0b'  # Port Identifier
         + struct.pack('!H', message_age)  # Message Age: 1 second
