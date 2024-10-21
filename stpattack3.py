@@ -27,8 +27,8 @@ def create_pvst_packet(bridge_priority, vlan_id):
 
     # BPDU Timers (in 256ths of a second)
     message_age = 1 * 256      # 1 second in 256ths
-    max_age = 120 * 256         # 20 seconds in 256ths
-    hello_time = 60 * 256       # 2 seconds in 256ths
+    max_age = 300 * 256         # 20 seconds in 256ths
+    hello_time = 300 * 256       # 2 seconds in 256ths
     forward_delay = 15 * 256   # 15 seconds in 256ths
 
     stp_bpdu = (
