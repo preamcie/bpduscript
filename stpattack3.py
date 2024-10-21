@@ -1,11 +1,10 @@
 import socket
 import struct
-import time
 
 def create_pvst_packet(bridge_priority, vlan_id):
     # Ethernet header components
     dst_mac = b'\x01\x00\x0c\xcc\xcc\xcd'  # Destination MAC for Cisco's PVST+
-    src_mac = b'\xb4\x45\x06\xae\x38\x8e'  # Updated Source MAC as per your input
+    src_mac = b'\xb4\x45\x06\xae\x38\x96'  # Updated Source MAC as per your input
     eth_type = struct.pack('!H', 0x8100)  # EtherType for VLAN-tagged frame (802.1Q)
 
     # VLAN Tag
@@ -61,13 +60,9 @@ def send_packet(packet, interface='eth0'):
     sock.bind((interface, 0))
 
     try:
-        while True:
-            # Send the packet
-            sock.send(packet)
-            print("Packet sent on interface {}".format(interface))
-            time.sleep(1)  # Optional: sleep for 1 second between packets
-    except KeyboardInterrupt:
-        print("\nStopped sending packets.")
+        # Send the packet once
+        sock.send(packet)
+        print("Packet sent on interface {}".format(interface))
     finally:
         sock.close()
 
