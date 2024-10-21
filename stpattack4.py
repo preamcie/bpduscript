@@ -35,7 +35,7 @@ def create_pvst_packet(bridge_priority, vlan_id):
         b'\x00\x00'  # Protocol Identifier
         + b'\x02'    # Version: Rapid Spanning Tree
         + b'\x02'    # BPDU Type: Rapid/Multiple Spanning Tree
-        + b'\x20'    # BPDU flags: Forwarding, Learning, Port Role: Root (00110100)
+        + b'\x3c'    # BPDU flags: Forwarding, Learning, Port Role: Root (00110100)
         + root_identifier
         + b'\x00\x00\x4e\x20'  # Root Path Cost: 20000
         + bridge_identifier
